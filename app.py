@@ -1,10 +1,9 @@
 """
 This file holds the interface for the data streaming interface.
 """
-import numpy as np
+
 import datetime as dt
 from dash import Dash, dcc, html, Input, Output
-import plotly.graph_objs as go
 from src.classes.heat_pump import HeatPump
 
 
