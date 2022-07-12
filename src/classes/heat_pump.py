@@ -4,6 +4,11 @@ This file holds the heat pump simulation class.
 import datetime as dt
 
 
+class HeatingState:
+    ON = 'On'
+    OFF = 'Off'
+
+
 class State:
     def __init__(self, t_inside: float, t_inside_exp: float, t_outside: float):
         # Temperatures
@@ -56,6 +61,7 @@ class DemoConnect(HeatPumpConnect):
     def __init__(self, t_set, t_range, p_compressor, initial_state, k=1e-3):
         self.k = k  # in [
         super(DemoConnect, self).__init__(t_set, t_range, p_compressor, initial_state)
+        self.heating_mode = HeatingState.OFF
 
     def get_state(self):
         """
@@ -78,7 +84,24 @@ class DemoConnect(HeatPumpConnect):
         """
         Calculates the next inside temperature.
         """
-        return t_inside - t_delta * self.k * time
+        if self.heating_mode == HeatingState.OFF:
+            t_next = t_inside - t_delta * self.k * time
+
+            # Turn on heating if the lower bound has be reached
+            if t_next < self.t_set - self.t_range:
+                self.heating_mode = HeatingState.ON
+
+            return t_next
+
+        elif self.heating_mode == HeatingState.ON:
+            t_next = t_inside + t_delta * self.k * time * 3
+
+            # Turn off heating if the upper bound has been reached.
+            if t_next > self.t_set + self.t_range:
+                self.heating_mode = HeatingState.OFF
+
+            return t_next
+
 
 
 class HeatPump:
@@ -100,12 +123,14 @@ class HeatPump:
         else:
             self.connection = VaillantConnect()
 
+        # System variables
+        self.power_consumption = 0  # in [%]
+
     def get_current_state(self):
         """
         Retrieves the current state from the connected source.
         """
         self.connection.get_state()
-        pass
 
     def get_forecast(self):
         """
@@ -132,4 +157,3 @@ if __name__ == "__main__":
     heat_pump.connection.state.timestamp += dt.timedelta(hours=-1)
     heat_pump.connection.get_state()
     print("t_inside: ", heat_pump.connection.state.t_inside)
-

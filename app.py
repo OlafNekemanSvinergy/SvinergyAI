@@ -60,24 +60,28 @@ app.layout = html.Div([
              children='Enter a value and press submit'),
 
     dcc.Graph(id='graph', figure=figure),
-    dcc.Interval(id="interval")
+    dcc.Interval(
+        id='interval-component',
+        interval=3 * 1000,  # in milliseconds
+        n_intervals=0
+    )
 ])
 
 
 
 
 
-@app.callback(Output('graph', 'extendData'), [Input('interval', 'n_intervals')])
+@app.callback(
+    Output('graph', 'extendData'),
+    [Input('interval-component', 'n_intervals')])
 def update_data(n_intervals):
     heat_pump.get_current_state()
 
     x_data = heat_pump.connection.state.timestamp
     y_point = heat_pump.connection.state.t_inside
 
-    print(x_data, y_point)
-
     # tuple is (dict of new data, target trace index, number of points to keep)
-    return dict(x=[[x_data]], y=[[y_point]]), [0], 100
+    return dict(x=[[x_data]], y=[[y_point]]), [0], 1000
 
 
 """ -------------------------
