@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-=o3#%8xoip!e=v9$qlhdbhu1nwmb#6cnp5^8q-xrk#o5&xkn4@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'https://svinergy-ai-app-test.herokuapp.com/']
 
 
 # Application definition
