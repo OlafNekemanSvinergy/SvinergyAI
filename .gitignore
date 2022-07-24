@@ -9,10 +9,7 @@ __pycache__/
 venv
 *.pyc
 .DS_Store
-.env
-
-# Local configuration
-config.ini
+svinergyai/.env
 
 # Distribution / packaging
 .Python
@@ -66,7 +63,7 @@ docs/_build/
 target/
 
 # DotEnv configuration
-.env
+svinergyai/.env
 
 # Database
 *.db
