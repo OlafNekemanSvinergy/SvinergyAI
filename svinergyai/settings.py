@@ -35,7 +35,6 @@ DEBUG = True
 ALLOWED_HOSTS = ['0.0.0.0','127.0.0.1', 'svinergy-ai-app-test.herokuapp.com']
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
