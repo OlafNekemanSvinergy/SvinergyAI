@@ -11,6 +11,9 @@ venv
 .DS_Store
 .env
 
+# Local configuration
+config.ini
+
 # Distribution / packaging
 .Python
 env/
