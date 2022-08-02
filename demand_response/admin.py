@@ -1,6 +1,11 @@
 from django.contrib import admin
 
-from .models import Question
+from .models import PriceItem
 
-admin.site.register(Question)
+
+class PriceItemAdmin(admin.ModelAdmin):
+    list_display = ['date', 'hour', 'price']
+
+
 # Register your models here.
+admin.site.register(PriceItem, PriceItemAdmin)
