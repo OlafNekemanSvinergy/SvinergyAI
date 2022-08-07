@@ -16,6 +16,9 @@ class HeatPump(models.Model):
 
     # Attributes
     brand = models.CharField(max_length=15, choices=[(tag.name, tag.value) for tag in HeatPumpBrand])
+    device_id = models.CharField(max_length=200, unique=True)
+    serial_number = models.CharField(max_length=200, unique=True)
+
     max_power = models.IntegerField()
 
     class Meta:
@@ -27,16 +30,18 @@ class Connection(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     # Associations
-    heat_pump = models.ForeignKey(HeatPump, null=True, blank=True, on_delete=models.CASCADE)
+    heat_pump = models.ForeignKey(HeatPump, on_delete=models.CASCADE)
 
     # Attributes
     brand = models.CharField(max_length=15, choices=[(tag.name, tag.value) for tag in HeatPumpBrand])
-    api_key = models.CharField(max_length=200)
-    refresh_token = models.CharField(max_length=200)
+    access_token = models.CharField(max_length=2000)
+    refresh_token = models.CharField(max_length=2000)
     valid_until = models.DateTimeField()
     valid = models.IntegerField()
-    active = models.BooleanField()
+    active = models.BooleanField(default=False)
 
+    def is_active(self):
+        return self.active == True
 
 class DataPoint(models.Model):
     # Auto-generated fields
