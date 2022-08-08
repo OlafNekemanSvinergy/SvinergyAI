@@ -1,6 +1,7 @@
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
+import os
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -10,6 +11,7 @@ import requests
 from http import HTTPStatus
 from urllib.parse import urljoin
 from heat_pump.models import HeatPump, HeatPumpBrand
+
 
 # Create your views here.
 @api_view(['GET', 'POST'])
@@ -61,11 +63,38 @@ def setup_system(conn: ConnectionSerializer):
             if created:
                 heat_pump.save()
             return heat_pump, created
-        elif conn.validated_data.get('brand') == HeatPumpBrand.VAILLANT:
-            # Setup Vaillant system
-            pass
         else:
             return None, None
+
+    elif conn.validated_data.get('brand') == HeatPumpBrand.VAILLANT:
+        # Setup Vaillant system
+        # Todo: fetch gateway number with api endpoint
+        base_url = 'https://api.vaillant-group.com/service-connected-control/systems-api/v1/'
+        endpoint = 'systems/{}'.format('21202000201972220932005803N0')
+        url = urljoin(base_url, endpoint)
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': conn.validated_data.get('access_token'),
+            'Ocp-Apim-Subscription-Key': os.getenv('VAILLANT_OCP_API_SUBSCRIPTION_KEY')
+        }
+
+        res_system = requests.get(url, headers=headers)
+        if res_system.status_code == HTTPStatus.OK:
+            system = res_system.json()['devices']['gateway']
+
+            heat_pump, created = HeatPump.objects.get_or_create(
+                device_id=system['serialNumber'],
+                defaults={'serial_number': system['serialNumber'], 'brand': HeatPumpBrand.VAILLANT,
+                'max_power': 2000}
+                )
+            if created:
+                heat_pump.save()
+            return heat_pump, created
+        else:
+            return None, None
+    else:
+        return None, None
+
 
 @api_view(['GET', 'PUT', 'DELETE'])
 def connection_detail(request, pk, format=None):
