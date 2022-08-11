@@ -32,7 +32,11 @@ SECRET_KEY = env('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'svinergy-ai-app-test.herokuapp.com']
+ALLOWED_HOSTS = [
+    '0.0.0.0', 
+    '127.0.0.1', 
+    'svinergy-ai-app-test.herokuapp.com',
+    'svinergy-ai-app-live.herokuapp.com']
 
 # Application definition
 INSTALLED_APPS = [
