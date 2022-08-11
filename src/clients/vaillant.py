@@ -1,12 +1,14 @@
 """
 This file holds the Vaillant API client.
 """
-
+# Packages
 import os
 import requests
 from http import HTTPStatus
 from datetime import datetime, timedelta
-from src.clients.api_response import Token
+
+# Within module
+from src.clients.api_response import Token, HeatPump, HeatPumpData
 
 
 class VaillantApi:
@@ -24,7 +26,8 @@ class VaillantApi:
     base_url = 'https://api.vaillant-group.com'
 
     headers = {
-        'Ocp-Apim-Subscription-Key': os.getenv('VAILLANT_OCP_API_SUBSCRIPTION_KEY')
+        'Ocp-Apim-Subscription-Key': os.getenv(
+            'VAILLANT_OCP_API_SUBSCRIPTION_KEY')
     }
 
     @staticmethod
@@ -62,6 +65,74 @@ class VaillantApi:
                 access_token=content['access_token'],
                 refresh_token=content['refresh_token'],
                 expires_in=content['expires_in'],
-                valid_until=datetime.now() + timedelta(seconds=content['expires_in'])
+                valid_until=datetime.now() + timedelta(
+                    seconds=content['expires_in'])
             )
+
+        return None
+
+    @staticmethod
+    def fetch_heat_pump_data(device_id, access_token):
+        """
+        Fetches the heat pump data needed for analysis.
+        """
+        # Create the url
+        endpoint = 'systems/{}'.format('21202000201972220932005803N0')
+
+        url = VaillantApi.make_url(
+            api=VaillantApi.API.STATES,
+            endpoint=endpoint
+        )
+
+        # Create headers
+        headers = VaillantApi.headers.copy()
+        headers['Authorization'] = access_token
+
+        # Process request
+        res = requests.get(url, headers=headers)
+
+        if res.status_code == HTTPStatus.OK:
+            content = res.json()
+            t_data = HeatPumpData(
+                temp_inside=content['centralHeating']['roomTemperature'],
+                temp_target=content['centralHeating']['roomTemperatureTarget'],
+                temp_range=0,
+                temp_outdoor=content['centralHeating']['outdoorTemperature'],
+                heating_on=False,
+                power_level=0
+            )
+            return t_data
+
+        return None
+
+    @staticmethod
+    def get_system_info(device_id, access_token):
+        """
+        Fetches the heat pump system information.
+        """
+        # Update the Vaillant system
+        endpoint = 'systems/{systemId}?includeMetadata=false'.format(
+            systemId=device_id
+        )
+        url = VaillantApi.make_url(
+            api=VaillantApi.API.SYSTEMS,
+            endpoint=endpoint
+        )
+
+        # Create headers
+        headers = VaillantApi.headers.copy()
+        headers['Authorization'] = access_token
+
+        # Process request
+        res = requests.get(url, headers=headers)
+
+        if res.status_code == HTTPStatus.OK:
+            content = res.json()
+            gateway = content['devices']['gateway']
+            heat_pump = HeatPump(
+                device_id=gateway['serialNumber'],
+                serial_number=gateway['serialNumber']
+            )
+            return heat_pump
+
         return None
