@@ -35,7 +35,7 @@ class ConnectionList(APIView):
             heat_pump, created = register_system(conn=serializer)
             
             if heat_pump:
-                if heat_pump.connection:
+                if hasattr(heat_pump, "connection"):
                     self.update_tokens(conn=heat_pump.connection, data=request.data)
                     return Response(serializer.data, status=status.HTTP_200_OK)
                 else:
