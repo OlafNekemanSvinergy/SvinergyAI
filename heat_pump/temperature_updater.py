@@ -10,5 +10,5 @@ def get_temperatures():
 
 def start():
     scheduler = BackgroundScheduler()
-    scheduler.add_job(get_temperatures, 'interval', seconds=10)
+    scheduler.add_job(get_temperatures, 'interval', seconds=300)
     scheduler.start()
