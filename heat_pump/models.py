@@ -10,10 +10,12 @@ from django.utils.translation import gettext_lazy as _
 from django.db import models
 from src.clients.vaillant import VaillantApi
 
+
 # ENUMs
 class HeatPumpBrand(models.TextChoices):
     BOSCH = 'Bosch', _('Bosch')
     VAILLANT = 'Vaillant', _('Vaillant')
+
 
 class TokenType(models.TextChoices):
     BEARER = 'Bearer'
@@ -27,9 +29,7 @@ class HeatPump(models.Model):
 
     # Attributes
     brand = models.CharField(max_length=15, choices=HeatPumpBrand.choices)
-    device_id = models.CharField(max_length=200, unique=True)
-    serial_number = models.CharField(max_length=200, unique=True)
-
+    serial_number = models.CharField(max_length=200)
     max_power = models.IntegerField()
 
     def __str__(self):
@@ -44,10 +44,11 @@ class Connection(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     # Associations
-    heat_pump = models.ForeignKey(HeatPump, on_delete=models.CASCADE)
+    heat_pump = models.OneToOneField(HeatPump, on_delete=models.CASCADE)
 
     # Attributes
     brand = models.CharField(max_length=15, choices=HeatPumpBrand.choices)
+    device_id = models.CharField(max_length=200)
     access_token = models.CharField(max_length=2000)
     refresh_token = models.CharField(max_length=2000)
     valid_until = models.DateTimeField()
@@ -61,15 +62,15 @@ class Connection(models.Model):
             heat_pump_id=self.heat_pump.id
         )
 
-        # Class method
-
+    # Class method
     def update_token_with_refresh_token(self):
         """
         Updates the connection with a new token using the refresh token.
         """
         token = None
         if self.brand == HeatPumpBrand.VAILLANT:
-            token = VaillantApi.update_token_with_refresh_token(refresh_token=self.refresh_token)
+            token = VaillantApi.update_token_with_refresh_token(
+                refresh_token=self.refresh_token)
         elif self.brand == HeatPumpBrand.BOSCH:
             token = None
 
@@ -94,21 +95,24 @@ class Connection(models.Model):
             # Update the Vaillant system
 
             url = 'https://api.vaillant-group.com/service-connected-control/states-api/v2/systems/{systemId}?includeMetadata=false'.format(
-                systemId=self.heat_pump.device_id
+                systemId=self.device_id
             )
             headers = {
                 'Content-Type': 'application/json',
                 'Authorization': TokenType.BEARER + ' ' + self.access_token,
-                'Ocp-Apim-Subscription-Key': os.getenv('VAILLANT_OCP_API_SUBSCRIPTION_KEY')
+                'Ocp-Apim-Subscription-Key': os.getenv(
+                    'VAILLANT_OCP_API_SUBSCRIPTION_KEY')
             }
 
             res = requests.get(url, headers=headers)
-            if res.status_code == HTTPStatus.OK and os.getenv('VAILLANT_ENABLED'):
+            if res.status_code == HTTPStatus.OK and os.getenv(
+                    'VAILLANT_ENABLED'):
                 data = res.json()
                 data_point = DataPoint(
                     heat_pump=self.heat_pump,
                     temp_inside=data['centralHeating']['roomTemperature'],
-                    temp_target=data['centralHeating']['roomTemperatureTarget'],
+                    temp_target=data['centralHeating'][
+                        'roomTemperatureTarget'],
                     temp_range=0,
                     temp_outdoor=data['centralHeating']['outdoorTemperature'],
                     heating_on=False,

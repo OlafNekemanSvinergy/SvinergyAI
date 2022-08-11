@@ -1,7 +1,11 @@
-from django.http import HttpResponse, JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from rest_framework.parsers import JSONParser
 import os
+from typing import Union, Tuple
+
+from django.http import Http404
+from django.core import serializers
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -10,34 +14,88 @@ from heat_pump.serializers import ConnectionSerializer
 import requests
 from http import HTTPStatus
 from urllib.parse import urljoin
-from heat_pump.models import HeatPump, HeatPumpBrand
+from heat_pump.models import HeatPump, HeatPumpBrand, TokenType
 
+from src.clients.vaillant import VaillantApi
 
-# Create your views here.
-@api_view(['GET', 'POST'])
-def connection_list(request, format=None):
+class ConnectionList(APIView):
     """
     List all code connections, or create a new connection.
     """
-    if request.method == 'GET':
-        connections = Connection.objects.all()
-        serializer = ConnectionSerializer(connections, many=True)
-        return Response(serializer.data)
+    def get_object(self, device_id):
+        try:
+            return Connection.objects.get(device_id=device_id)
+        except Connection.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
 
-    elif request.method == 'POST':
+    def post(self, request, format=None):
         serializer = ConnectionSerializer(data=request.data)
+
         if serializer.is_valid():
-            heat_pump, created = setup_system(conn=serializer)
-            if heat_pump and created:
-                serializer.save(heat_pump=heat_pump)
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            heat_pump, created = register_system(conn=serializer)
+            
+            if heat_pump:
+                if heat_pump.connection:
+                    self.update_tokens(conn=heat_pump.connection, data=request.data)
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                else:
+                    serializer.save(heat_pump=heat_pump)
+                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    # def get_object(self, device_id):
+    #     try:
+    #         return ConnectionSerializer.objects.get(device_id=device_id)
+    #     except ConnectionSerializer.DoesNotExist:
+    #         raise Http404
 
-def setup_system(conn: ConnectionSerializer):
+    def update_tokens(self, conn, data):
+        """
+        Updates the access and refresh token. 
+        """
+        serializer = ConnectionSerializer(conn, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return True
+        return False           
+
+
+class ConnectionDetail(APIView):
     """
-    Run a 
+    Retrieve, update or delete a code connections.
     """
+    def get_object(self, device_id):
+        try:
+            return Connection.objects.get(device_id=device_id)
+        except Connection.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+    def get(self, request, device_id, format=None):
+        connection = self.get_object(device_id=device_id)
+        serializer = ConnectionSerializer(connection)
+        return Response(serializer.data)
+
+    def put(self, request, device_id, format=None):
+        connection = self.get_object(device_id=device_id)
+        serializer = ConnectionSerializer(connection, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, device_id, format=None):
+        connection = self.get_object(device_id=device_id)
+        connection.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+        
+def register_system(conn: ConnectionSerializer) -> tuple[HeatPump, bool]:
+    """
+    Register the heat pump system.
+    """ 
     if conn.validated_data.get('brand') == HeatPumpBrand.BOSCH:
         base_url = 'https://ews-emea.api.bosch.com/home/sandbox/pointt/v1/'
         endpoint = 'gateways'
@@ -66,57 +124,24 @@ def setup_system(conn: ConnectionSerializer):
         else:
             return None, None
 
-    elif conn.validated_data.get('brand') == HeatPumpBrand.VAILLANT:
+    elif conn.validated_data.get('brand') == HeatPumpBrand.VAILLANT:    
         # Setup Vaillant system
         # Todo: fetch gateway number with api endpoint
-        base_url = 'https://api.vaillant-group.com/service-connected-control/systems-api/v1/'
-        endpoint = 'systems/{}'.format('21202000201972220932005803N0')
-        url = urljoin(base_url, endpoint)
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': conn.validated_data.get('access_token'),
-            'Ocp-Apim-Subscription-Key': os.getenv('VAILLANT_OCP_API_SUBSCRIPTION_KEY')
-        }
-
-        res_system = requests.get(url, headers=headers)
-        if res_system.status_code == HTTPStatus.OK:
-            system = res_system.json()['devices']['gateway']
-
+        system = VaillantApi.get_system_info(
+            device_id=conn.validated_data.get('device_id'),
+            access_token=TokenType.BEARER + ' ' + conn.validated_data.get('access_token')
+        )
+        if system:
             heat_pump, created = HeatPump.objects.get_or_create(
-                device_id=system['serialNumber'],
-                defaults={'serial_number': system['serialNumber'], 'brand': HeatPumpBrand.VAILLANT,
+                serial_number=system.serial_number,
+                defaults={'brand': HeatPumpBrand.VAILLANT,
                 'max_power': 2000}
                 )
             if created:
                 heat_pump.save()
+
             return heat_pump, created
-        else:
-            return None, None
-    else:
-        return None, None
+    
+    return None, False
 
 
-@api_view(['GET', 'PUT', 'DELETE'])
-def connection_detail(request, pk, format=None):
-    """
-    Retrieve, update or delete a code connections.
-    """
-    try:
-        connections = Connection.objects.get(pk=pk)
-    except Connection.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = ConnectionSerializer(connections)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = ConnectionSerializer(connections, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        connections.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
