@@ -3,7 +3,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 def get_temperatures():
     connection_list = Connection.objects.filter(active=True)
-    print('updating system')
     for conn in connection_list:
         conn.update_system()
 
