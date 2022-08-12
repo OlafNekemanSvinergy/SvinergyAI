@@ -134,7 +134,7 @@
             "enabled": false
         }
     },
-    "appVersion": "0.0.0",
+    "appVersion": "0.0.1",
     "buildNumber": 1,
     "runtimeUrl": "https://svinergyai-sandbox.mxapps.io/"
 }
