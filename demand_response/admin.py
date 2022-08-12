@@ -9,7 +9,7 @@ def manual_fetch_frank_energie_prices(modeladmin, request, queryset):
 
 class PriceItemAdmin(admin.ModelAdmin):
     list_display = ['timestamp', 'hour', 'price']
-    ordering = ['timestamp']
+    ordering = ['-timestamp']
     actions = [manual_fetch_frank_energie_prices]
 
 
