@@ -105,8 +105,7 @@ class Connection(models.Model):
             }
 
             res = requests.get(url, headers=headers)
-            if res.status_code == HTTPStatus.OK and os.getenv(
-                    'VAILLANT_ENABLED'):
+            if res.status_code == HTTPStatus.OK and os.getenv('VAILLANT_ENABLED'):
                 data = res.json()
                 data_point = DataPoint(
                     heat_pump=self.heat_pump,
